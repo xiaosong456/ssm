@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+    xmlns:mvc="http://www.springframework.org/schema/mvc"
+    xmlns:p="http://www.springframework.org/schema/p" 
+    xmlns:context="http://www.springframework.org/schema/context"
+    xmlns:aop="http://www.springframework.org/schema/aop" 
+    xmlns:tx="http://www.springframework.org/schema/tx"
+    xmlns:task="http://www.springframework.org/schema/task"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+            http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+            http://www.springframework.org/schema/context
+            http://www.springframework.org/schema/context/spring-context-4.2.xsd
+            http://www.springframework.org/schema/aop 
+            http://www.springframework.org/schema/aop/spring-aop-4.2.xsd
+            http://www.springframework.org/schema/tx 
+            http://www.springframework.org/schema/tx/spring-tx-4.2.xsd
+            http://www.springframework.org/schema/mvc 
+            http://www.springframework.org/schema/mvc/spring-mvc-4.2.xsd
+            http://www.springframework.org/schema/context 
+            http://www.springframework.org/schema/context/spring-context-4.2.xsd
+            http://www.springframework.org/schema/task
+            http://www.springframework.org/schema/task/spring-task.xsd">
+
+	<context:component-scan base-package="com.lxsoft">
+    	<!--<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller" />-->
+	</context:component-scan>
+
+    <bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="locations">
+            <list>
+                <value>classpath:jdbc.properties</value>
+            </list>
+        </property>
+    </bean>
+
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource" init-method="init" destroy-method="close">
+        <property name="url" value="${jdbc.url}" />
+        <property name="username" value="${jdbc.username}" />
+        <property name="password" value="${jdbc.password}" />
+        <property name="initialSize" value="1" />
+        <property name="minIdle" value="1" />
+        <property name="maxActive" value="20" />
+        <property name="maxWait" value="60000" />
+        <property name="timeBetweenEvictionRunsMillis" value="60000" />
+        <property name="minEvictableIdleTimeMillis" value="300000" />
+        <property name="validationQuery" value="SELECT 'x'" />
+        <property name="testWhileIdle" value="true" />
+        <property name="testOnBorrow" value="false" />
+        <property name="testOnReturn" value="false" />
+        <property name="poolPreparedStatements" value="false" />
+        <property name="maxPoolPreparedStatementPerConnectionSize" value="20" />
+        <property name="filters" value="stat" />
+    </bean>
+
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean"
+    	p:dataSource-ref="dataSource"
+    	p:configLocation="classpath:mybatis-config.xml"
+    	p:mapperLocations="classpath:com/lxsoft/*.xml" />
+
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer"
+    	p:basePackage="com.lxsoft.*"
+    	p:sqlSessionFactoryBeanName="sqlSessionFactory" />
+
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager"
+    	p:dataSource-ref="dataSource" />
+
+    <aop:aspectj-autoproxy proxy-target-class="true" />
+
+    <tx:annotation-driven />
+
+    <context:annotation-config/>
+
+
+ <bean class="org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor"/>
+
+
+
+
+
+    <!--1.安全管理器-->
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <!-- 1.1配置缓存管理器 -->
+        <property name="cacheManager" ref="cacheManager" />
+        <!-- 1.2设置安全管理器的安全数据源为自定义的 Realm -->
+        <!--<property name="realm" ref="myRealm" />-->
+        <property name="authenticator" ref="authenticator" />
+
+        <!--配置多个Realm规则-->
+        <property name="realms">
+            <list>
+                <ref bean="myRealm" />
+                <!--<ref bean="shiroRealm" />-->
+            </list>
+        </property>
+
+        <property name="rememberMeManager" ref="remeberMeManager" />
+    </bean>
+
+    <bean id="remeberMeManager" class="org.apache.shiro.web.mgt.CookieRememberMeManager">
+        <property name="cipherKey" value="#{T(org.apache.shiro.codec.Base64).decode('4AvVhmFLUs0KTA3Kprsdag==')}" />
+        <property name="cookie" ref="rememberMeCookie" />
+    </bean>
+
+    <!--设置记住我时长-->
+    <bean id="rememberMeCookie" class="org.apache.shiro.web.servlet.SimpleCookie">
+        <constructor-arg value="rememberMe"/>
+        <property name="httpOnly" value="true"/>
+        <property name="maxAge" value="20"/><!-- 30天  2592000-->
+    </bean>
+
+    <!-- 1.1配置缓存管理器 -->
+    <bean id="cacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">
+        <property name="cacheManagerConfigFile" value="classpath:ehcache.xml"/>
+    </bean>
+
+    <bean id="authenticator" class="org.apache.shiro.authc.pam.ModularRealmAuthenticator">
+
+        <!--配置认证策略-->
+        <property name="authenticationStrategy">
+            <bean class="org.apache.shiro.authc.pam.AllSuccessfulStrategy"></bean>
+        </property>
+    </bean>
+
+    <!-- 1.2设置安全管理器的安全数据源为自定义的 Realm -->
+    <bean id="myRealm" class="com.lxsoft.shiro.realms.MyRealm">
+        <property name="credentialsMatcher">
+            <bean class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+                <property name="hashAlgorithmName" value="MD5"></property>      <!--加密算法-->
+                <property name="hashIterations" value="1024"></property>         <!--加密次数-->
+            </bean>
+        </property>
+    </bean>
+
+
+    <!--<bean id="shiroRealm" class="com.lxsoft.shiro.realms.ShiroRealm">-->
+        <!--<property name="credentialsMatcher">-->
+            <!--<bean class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">-->
+                <!--<property name="hashAlgorithmName" value="SHA1"></property>      &lt;!&ndash;加密算法&ndash;&gt;-->
+                <!--<property name="hashIterations" value="1024"></property>         &lt;!&ndash;加密次数&ndash;&gt;-->
+            <!--</bean>-->
+        <!--</property>-->
+    <!--</bean>-->
+
+    <!--2.配置LifecycleBeanPostProcessor 可以自动的调用配置在Spring IOC容器中 Shiro bean 的生命周期方法 -->
+    <bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>
+
+    <!--3.启用IOC容器中使用Shiro 的注解，但必须在配置了lifecycleBeanPostProcessor 之后才可以使用-->
+    <bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator" depends-on="lifecycleBeanPostProcessor">
+        <property name="proxyTargetClass" value="true" />
+    </bean>
+
+    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+        <property name="securityManager" ref="securityManager"/>
+    </bean>
+
+    <!--4.配置ShiroFilter
+    id必须和web.xml中的DelegatingFilterProxy的filter-name一致,
+    否则会抛NoSuchBeanDefinitionException异常
+
+    不知道为什么有的没有权限的会报500的错误，而没有跳转到未授权的界面
+    -->
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <!--Shiro的核心安全接口，这个属性是必须的-->
+        <property name="securityManager" ref="securityManager" />
+        <!--身份认证失败，则跳转到登录页面的配置-->
+        <property name="loginUrl" value="/login.jsp" />
+        <!--身份认证成功，则跳转到系统内页面-->
+        <property name="successUrl" value="/list.jsp" />
+        <!--权限认证失败，则跳转到指定页面-->
+        <property name="unauthorizedUrl" value="/unauthorized.jsp" />
+
+        <property name="filterChainDefinitionMap" ref="filterChainDefinitionMap" />
+        <!--Shiro连接约束配置，即过滤链的定义
+        anon    可以被匿名访问
+        authc   必须认证即登录后才可以访问的页面
+        URL权限采取第一次匹配原则，即从头开始使用第一个匹配的url模式对应的拦截器链
+        -->
+       <!-- <property name="filterChainDefinitions">
+            <value>
+                /login.jsp=anon
+                /shiro/login=anon
+                /shiro/logout=logout
+
+               /user.jsp=roles[user]
+                /admin.jsp=roles[admin]
+
+                /**=authc
+            </value>
+        </property>-->
+    </bean>
+
+    <!--配置一个bean，该bean实际上是一个Map，通过实例工厂方法的方式-->
+    <bean id="filterChainDefinitionMap" factory-bean="filterChainDefinitionMapBuilder" factory-method="buildFilterChainDefinitionMap" />
+    <bean id="filterChainDefinitionMapBuilder" class="com.lxsoft.shiro.factory.FilterChainDefinitionMapBuilder"></bean>
+
+
+    <!--不知道为什么上面的抛出未授权异常时有时跳转页面失败，因此在此处添加异常捕获的bean，用于处理未授权、登录失败、等异常-->
+    <bean class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver">
+        <property name="exceptionMappings">
+            <props>
+                <prop key="org.apache.shiro.authc.UnknownAccountException">
+                    /login
+                </prop>
+                <prop key="org.apache.shiro.authz.UnauthorizedException">  <!--表示捕获的异常-->
+                    /unauthorized <!--捕获该异常时跳转的路径-->
+                </prop>
+                <prop key="org.apache.shiro.authz.UnauthenticatedException">  <!--表示捕获的异常-->
+                    /unauthenticated  <!--捕获该异常时跳转的路径-->
+                </prop>
+            </props>
+        </property>
+    </bean>
+
+
+
+</beans>

@@ -1,0 +1,32 @@
+授权需要继承AuthorizingRealm类，并实现doGetAuthorizationInfo方法
+AuthorizingRealm类继承AuthenicatingRealm，但没有实现AuthenicatingRealm中的
+doGetAuthorizationInfo，所以认证和授权只需要继承AuthorizingRealm就可以了，同时实现他的两个抽象方法
+
+密码的比对：
+通过AuthenticatingRealm的credentialsMatcher属性来进行比对
+
+如何把一个字符串通过md5加密
+1、替换当前Realm的credentialsMatcher属性，直接使用HashedCredentialsMatcher对象，并设置加密算法即可
+
+为什么使用MD5盐值加密
+为了做到即使不同的用户密码相同存到数据库中的数据也不一样，更安全
+怎样做到？
+1、在doGetAuthenticationInfo方法返回值创建SimpleAuthenticationInfo对象的时候需要
+SimpleAuthenticationInfo(principal,credentials,credentialsSalt,realmName)构造器
+2、需要使用ByteSource.Util.bytes("");来计算盐值
+3、盐值需要唯一，一般使用随机字符串或userId
+4、使用 SimpleHash(hashAlogorithmName,credentials,salt,HashIterations);来计算盐值加密后的密码的值
+
+
+1、获取当前的Subject。调用Security.getSubject();
+2、测试当前用户是否已经被认证，即是否已经登录，调用Subject的isAuthenticated()
+3、若没有被认证，则把用户名和密码封装为UsernamePasswordToken 对象
+    ①创建一个表单页面
+    ②把请求提交到SpringMVC的Handler
+    ③获取用户名和密码
+4、执行登录：调用Subject的login(AuthenticationToken)方法
+5、自定义Realm的方法，从数据库中获取对应的记录，返回给Shiro
+    ①实际上需要继承org.apache.shiro.realm.AuthenticatingRealm类
+    ②实现doGetAuthenticationInfo(AuthenticationToken)方法
+6、由shiro完成对密码的比对
+
